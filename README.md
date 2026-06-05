@@ -1,24 +1,143 @@
-# Path Review Install Test
+[![CI](https://github.com/DavidHein96/OncAIReviewApp/actions/workflows/ci.yml/badge.svg)](https://github.com/DavidHein96/OncAIReviewApp/actions/workflows/ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
-This is a tiny Windows executable test for the pathologist review app.
+# oncai-review
 
-It checks whether a no-admin local app can:
+A local, dependency-free web app for physicians to review structured extractions
+from clinical notes — approve, reject, or edit each extracted event, with the
+source note and supporting evidence shown side by side.
 
-1. Start on a locked-down Windows computer
-2. Open a browser page at localhost
-3. Save a small test file to the user's Documents folder
+The reviewer opens a `*.review_pkg.json` package, adjudicates each event, and the
+verdicts are written to a `*.reviews.jsonl` sidecar. Everything runs on
+`localhost` — **no data leaves the machine** and no network calls are made.
 
-## What it does
+![The review UI: source note with evidence spans highlighted on the left, editable extracted fields on the right.](docs/screenshot.png)
 
-When run, it creates:
+> The screenshot above is the bundled demo (`examples/demo.review_pkg.json`) —
+> entirely synthetic data, no real patients.
 
-```text
-Documents/PathReviewTest/
+## Highlights
+
+- **Standard library only.** `server.py` imports nothing outside the Python
+  standard library, so it can be frozen into a single shareable executable with
+  no Python install, virtualenv, or database required on the reviewer's machine.
+- **Runs locally.** Binds to `127.0.0.1`, auto-picks an open port, and opens the
+  browser for you.
+- **Evidence-first UI.** Each extracted field is shown next to the source note,
+  with the model's verbatim evidence spans highlighted inline.
+- **Append-only audit log.** Verdicts are written as JSONL (one line per save,
+  last write per event wins), so a review session is fully reconstructable.
+
+## Quickstart
+
+Requires Python 3.11+. No dependencies to install. Try it against the bundled
+demo package:
+
+```bash
+python server.py --package examples/demo.review_pkg.json
 ```
 
-And writes
+Your browser opens to the review UI shown above. That's the whole app.
 
-```text
-test_save.json
-review_test.json
+## Running from source
+
+```bash
+# Start empty and pick a package in the browser file picker:
+python server.py
+
+# ...or open a package immediately:
+python server.py --package path/to/batch.review_pkg.json
 ```
+
+Then review in the browser tab that opens. Verdicts are saved to:
+
+- the package's folder, when you pass `--package`, or
+- `~/Documents/oncai_reviews/<batch>.reviews.jsonl`, when you open a package from
+  the in-app file picker (the browser can't reveal the chosen file's folder, so a
+  stable home-dir location keyed by batch name is used).
+
+### CLI options
+
+| Flag              | Default             | Description                                                                 |
+| ----------------- | ------------------- | --------------------------------------------------------------------------- |
+| `--package`, `-p` | _(none)_            | Path to a `*.review_pkg.json`. If omitted, pick one in the app.             |
+| `--reviews`       | _alongside package_ | Output reviews JSONL path.                                                  |
+| `--host`          | `127.0.0.1`         | Host to bind.                                                               |
+| `--port`          | `8765`              | Preferred port; auto-falls back to an open one if busy (`0` = OS-assigned). |
+| `--reviewer`      | _(empty)_           | Reviewer name stamped on each verdict.                                      |
+| `--no-browser`    | _off_               | Do not auto-open a browser.                                                 |
+
+## Building standalone executables
+
+`server.py` is designed to be frozen with [PyInstaller](https://pyinstaller.org/)
+into a single file a collaborator can run with no Python install:
+
+```bash
+# Windows uses ';' as the --add-data separator; macOS/Linux use ':'
+uv run pyinstaller --onefile --name oncai-review --add-data "web:web" server.py
+```
+
+The `--add-data` flag bundles the web assets; at runtime they are unpacked from
+`sys._MEIPASS`, so the one-file binary stays self-contained.
+
+The `.github/workflows/build.yml` workflow builds **Windows (x64), Linux (x64),
+and macOS (arm64)** binaries in one matrix run. It's manual — trigger it from the
+**Actions** tab ("Build standalone executables" → **Run workflow**) and download
+the per-platform artifacts.
+
+## Development
+
+```bash
+uv run --group dev pytest    # Python test suite
+uvx ruff check .             # lint
+uvx ty check .               # type check
+node --test "web/*.test.js"  # front-end test suite (no npm install needed)
+```
+
+The Python suite exercises the pure helpers, the append-only verdict log
+(replay + last-write-wins), and full HTTP round-trips against a live server —
+including the static-file path-traversal guard. The front-end suite uses Node's
+built-in test runner (zero dependencies) to cover the tricky pure helpers in
+`app.js` — the order-insensitive change detection and the whitespace-flexible
+evidence highlighter. CI runs Python on Linux/Windows/macOS across 3.11 and 3.13.
+
+See [DESIGN.md](docs/DESIGN.md) for the architecture and the reasoning behind the
+key decisions (stdlib-only, append-only log, the security guard, and more).
+
+## The review package format
+
+A `*.review_pkg.json` is a single JSON object with:
+
+- `field_schema` — per-event-type field definitions that drive the editable form
+  (label, control type, options, etc.).
+- `patients` — a list of patients, each with their `mrn`, their source `notes`,
+  and the extracted `events` to review.
+- optional metadata: `definition_name`, `batch`, `generated_at`.
+
+The matching `*.reviews.jsonl` output has one JSON object per saved verdict:
+`event_key`, `mrn`, `verdict` (`approved` / `rejected`), any field `edits`, a
+free-text `comment`, the `reviewer`, and a `reviewed_at` timestamp.
+
+## Repository layout
+
+```
+server.py                       # the localhost review server (stdlib only)
+web/
+  index.html                    # app shell + package picker
+  app.js                        # review UI (vanilla JS, no build step)
+  app.test.js                   # front-end tests (node --test, no deps)
+  style.css
+tests/test_server.py            # pytest suite (pure helpers + live HTTP)
+examples/demo.review_pkg.json   # synthetic demo package
+docs/
+  screenshot.png                # README screenshot
+  DESIGN.md                     # architecture notes
+.github/workflows/
+  ci.yml                        # lint + test matrix (Linux/Windows/macOS)
+  build.yml                     # manual multi-OS executable build
+```
+
+## License
+
+Licensed under the GNU Affero General Public License v3.0 — see [LICENSE](LICENSE).
