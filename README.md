@@ -82,9 +82,12 @@ The `--add-data` flag bundles the web assets; at runtime they are unpacked from
 `sys._MEIPASS`, so the one-file binary stays self-contained.
 
 The `.github/workflows/build.yml` workflow builds **Windows (x64), Linux (x64),
-and macOS (arm64)** binaries in one matrix run. It's manual — trigger it from the
-**Actions** tab ("Build standalone executables" → **Run workflow**) and download
-the per-platform artifacts.
+and macOS (arm64)** binaries in one matrix run. It runs two ways:
+
+- **On demand** — from the **Actions** tab ("Build standalone executables" →
+  **Run workflow**); the binaries are uploaded as workflow artifacts.
+- **On a new GitHub Release** — the per-platform binaries are built and attached
+  directly to that release as downloadable assets.
 
 ## Development
 
@@ -135,7 +138,7 @@ docs/
   DESIGN.md                     # architecture notes
 .github/workflows/
   ci.yml                        # lint + test matrix (Linux/Windows/macOS)
-  build.yml                     # manual multi-OS executable build
+  build.yml                     # multi-OS executable build (manual + on release)
 ```
 
 ## License

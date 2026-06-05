@@ -1,12 +1,18 @@
 name: Build standalone executables
 
-# Manual only — builds a single-file executable for each platform and uploads
-# them as workflow artifacts. Trigger from the Actions tab → Run workflow.
+# Builds a single-file executable for each platform. Runs on demand (Actions
+# tab → Run workflow) and automatically when a GitHub Release is created — in
+# which case the per-platform binaries are attached to that release.
 on:
   workflow_dispatch:
+  release:
+    types: [created]
 
 jobs:
   build:
+    # Needed so the release-asset upload can write to the release.
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -15,14 +21,17 @@ jobs:
             label: windows-x64
             data: "web;web"          # PyInstaller uses ';' as the path separator on Windows
             binary: oncai-review.exe
+            asset: oncai-review-windows-x64.exe
           - os: ubuntu-latest
             label: linux-x64
             data: "web:web"          # ...and ':' everywhere else
             binary: oncai-review
+            asset: oncai-review-linux-x64
           - os: macos-latest
             label: macos-arm64       # macos-latest runners are Apple Silicon (arm64)
             data: "web:web"
             binary: oncai-review
+            asset: oncai-review-macos-arm64
     runs-on: ${{ matrix.os }}
     steps:
       - name: Check out repo
@@ -44,3 +53,12 @@ jobs:
         with:
           name: oncai-review-${{ matrix.label }}
           path: dist/${{ matrix.binary }}
+
+      - name: Attach binary to the release
+        if: github.event_name == 'release'
+        # `cp` works in both bash (Linux/macOS) and PowerShell (Windows).
+        run: |
+          cp dist/${{ matrix.binary }} ${{ matrix.asset }}
+          gh release upload ${{ github.event.release.tag_name }} ${{ matrix.asset }} --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
