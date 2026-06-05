@@ -23,6 +23,7 @@ Web assets (index.html / style.css / app.js) live in the sibling ``web/`` dir.
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 import mimetypes
 import re
@@ -57,25 +58,37 @@ def _safe_name(name: str) -> str:
     return safe or "review"
 
 
-# Same contract as ApproxDate in fc_extraction/models.py: YYYY / YYYY-MM / YYYY-MM-DD.
-_APPROX_DATE_RE = re.compile(r"^\d{4}(-\d{2}(-\d{2})?)?$")
+# ApproxDate.date is always a full YYYY-MM-DD (precision conveys granularity);
+# a null date is allowed when unknown.
+_APPROX_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_ANCHORS = {None, "BOM", "EOM", "BOY", "EOY", "MID", "EXACT"}
 
 
 def _validate_review(review: dict) -> str | None:
-    """Return an error message if an edited date is malformed, else None.
+    """Return an error message if an edited ApproxDate is malformed, else None.
 
-    Authoritative guard so a bad date can't be persisted even if the browser
-    validation is bypassed. Only edited ApproxDate values ({"date": ...}) are
-    checked; a null date (unknown) is allowed.
+    Authoritative guard so bad data can't be persisted even if the browser
+    validation is bypassed. Checks edited ApproxDate values ({"date": ...}):
+    the date must be a real calendar date in YYYY-MM-DD (or null = unknown),
+    and the anchor must be one of the allowed hints.
     """
     for field, value in (review.get("edits") or {}).items():
-        if isinstance(value, dict) and "date" in value:
-            date = value.get("date")
-            if date is not None and not _APPROX_DATE_RE.match(str(date)):
+        if not (isinstance(value, dict) and "date" in value):
+            continue
+        date = value.get("date")
+        if date is not None:
+            date = str(date)
+            if not _APPROX_DATE_RE.match(date):
                 return (
                     f"Field '{field}' has an invalid date '{date}'. "
-                    "Use YYYY-MM-DD (or YYYY / YYYY-MM for partial dates)."
+                    "Use YYYY-MM-DD (set precision for approximate dates)."
                 )
+            try:
+                datetime.date.fromisoformat(date)
+            except ValueError:
+                return f"Field '{field}' has an impossible calendar date '{date}'."
+        if value.get("anchor") not in _ANCHORS:
+            return f"Field '{field}' has an invalid date anchor '{value.get('anchor')}'."
     return None
 
 

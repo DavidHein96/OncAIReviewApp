@@ -37,3 +37,7 @@ static_demos/*
 
 # Personal scratch dirs — local notes, log dumps, drafts
 *-scratch/
+
+# No prettier parser for these
+Makefile
+.python-version

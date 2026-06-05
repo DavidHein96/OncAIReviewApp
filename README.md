@@ -91,19 +91,28 @@ and macOS (arm64)** binaries in one matrix run. It runs two ways:
 
 ## Development
 
+A `Makefile` wraps the common tasks — run `make help` to list them:
+
 ```bash
-uv run --group dev pytest    # Python test suite
-uvx ruff check .             # lint
-uvx ty check .               # type check
-node --test "web/*.test.js"  # front-end test suite (no npm install needed)
+make install   # set up dev tooling (uv dev group + npm dev deps)
+make demo      # run the app against the bundled demo package
+make lint      # ruff + ty + eslint + prettier --check
+make format    # auto-format: ruff + prettier + eslint --fix
+make test      # Python test suite (pytest)
+make test-js   # front-end test suite (node --test)
+make check     # lint + all tests
+make build     # build a single-file executable into dist/
 ```
 
 The Python suite exercises the pure helpers, the append-only verdict log
 (replay + last-write-wins), and full HTTP round-trips against a live server —
 including the static-file path-traversal guard. The front-end suite uses Node's
-built-in test runner (zero dependencies) to cover the tricky pure helpers in
-`app.js` — the order-insensitive change detection and the whitespace-flexible
-evidence highlighter. CI runs Python on Linux/Windows/macOS across 3.11 and 3.13.
+built-in test runner to cover the tricky pure helpers in `app.js` — the
+order-insensitive change detection and the whitespace-flexible evidence
+highlighter. Linting/formatting is `ruff` + `ty` (Python) and `eslint` +
+`prettier` (JS) — dev-only tools; the app itself still ships dependency-free. CI
+runs all of it: Python tests on Linux/Windows/macOS across 3.11 and 3.13, plus
+the JS lint + tests.
 
 See [DESIGN.md](docs/DESIGN.md) for the architecture and the reasoning behind the
 key decisions (stdlib-only, append-only log, the security guard, and more).
@@ -125,6 +134,7 @@ free-text `comment`, the `reviewer`, and a `reviewed_at` timestamp.
 ## Repository layout
 
 ```
+Makefile                        # dev/build/run tasks (make help)
 server.py                       # the localhost review server (stdlib only)
 web/
   index.html                    # app shell + package picker

@@ -63,10 +63,12 @@ in principle. `_serve_static` resolves the target and verifies it is still insid
 
 The browser validates edited dates as you type, but the server **re-validates**
 before persisting (`_validate_review`), because client-side checks can be
-bypassed. An `ApproxDate` must be empty or `YYYY` / `YYYY-MM` / `YYYY-MM-DD`;
-anything else is rejected with a `400` and a human-readable message. The rule
-mirrors the extraction model's own date contract so reviewed data stays
-round-trippable.
+bypassed. An `ApproxDate`'s `date` must be empty (unknown) or a real calendar
+date in full `YYYY-MM-DD` form — a separate `precision` field conveys how much
+is actually known (year / month / day), and an optional `anchor` must be one of
+the allowed hints. Anything else is rejected with a `400` and a human-readable
+message. The rule mirrors the extraction model's own date contract so reviewed
+data stays round-trippable.
 
 ## Whitespace-flexible evidence highlighting
 

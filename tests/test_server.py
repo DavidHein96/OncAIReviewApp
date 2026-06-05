@@ -40,8 +40,8 @@ def test_safe_name(raw, expected):
     assert server._safe_name(raw) == expected
 
 
-@pytest.mark.parametrize("date", ["2026", "2026-02", "2026-02-14"])
-def test_validate_review_accepts_well_formed_dates(date):
+@pytest.mark.parametrize("date", ["2026-02-14", "2024-12-31", "2000-01-01"])
+def test_validate_review_accepts_full_calendar_dates(date):
     review = {"edits": {"diagnosis_date": {"date": date, "precision": 3}}}
     assert server._validate_review(review) is None
 
@@ -56,12 +56,33 @@ def test_validate_review_ignores_non_date_edits():
     assert server._validate_review(review) is None
 
 
-@pytest.mark.parametrize("bad", ["Feb 2026", "2026-2-1", "2026/02/14", "not-a-date"])
-def test_validate_review_rejects_malformed_dates(bad):
+# Dates are now required to be full YYYY-MM-DD — partial dates are rejected.
+@pytest.mark.parametrize("bad", ["2026", "2026-02", "Feb 2026", "2026-2-1", "2026/02/14", "not-a-date"])
+def test_validate_review_rejects_non_full_dates(bad):
     review = {"edits": {"diagnosis_date": {"date": bad}}}
     err = server._validate_review(review)
     assert err is not None
     assert "diagnosis_date" in err
+
+
+def test_validate_review_rejects_impossible_calendar_date():
+    review = {"edits": {"diagnosis_date": {"date": "2026-02-30"}}}
+    err = server._validate_review(review)
+    assert err is not None
+    assert "impossible" in err
+
+
+@pytest.mark.parametrize("anchor", [None, "BOM", "EOM", "BOY", "EOY", "MID", "EXACT"])
+def test_validate_review_accepts_known_anchors(anchor):
+    review = {"edits": {"diagnosis_date": {"date": "2026-02-14", "anchor": anchor}}}
+    assert server._validate_review(review) is None
+
+
+def test_validate_review_rejects_unknown_anchor():
+    review = {"edits": {"diagnosis_date": {"date": "2026-02-14", "anchor": "BOGUS"}}}
+    err = server._validate_review(review)
+    assert err is not None
+    assert "anchor" in err
 
 
 @pytest.mark.parametrize(

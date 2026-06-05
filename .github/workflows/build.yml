@@ -19,16 +19,16 @@ jobs:
         include:
           - os: windows-latest
             label: windows-x64
-            data: "web;web"          # PyInstaller uses ';' as the path separator on Windows
+            data: "web;web" # PyInstaller uses ';' as the path separator on Windows
             binary: oncai-review.exe
             asset: oncai-review-windows-x64.exe
           - os: ubuntu-latest
             label: linux-x64
-            data: "web:web"          # ...and ':' everywhere else
+            data: "web:web" # ...and ':' everywhere else
             binary: oncai-review
             asset: oncai-review-linux-x64
           - os: macos-latest
-            label: macos-arm64       # macos-latest runners are Apple Silicon (arm64)
+            label: macos-arm64 # macos-latest runners are Apple Silicon (arm64)
             data: "web:web"
             binary: oncai-review
             asset: oncai-review-macos-arm64

@@ -1,7 +1,36 @@
 const S = { data: null, schema: {}, byMrn: {}, sel: null, reviews: {}, dirty: {} };
 
-// Mirrors ApproxDate's contract in models.py: empty, YYYY, YYYY-MM, or YYYY-MM-DD.
-const APPROX_DATE_RE = /^\d{4}(-\d{2}(-\d{2})?)?$/;
+// ApproxDate.date is ALWAYS a full, real calendar date as YYYY-MM-DD — the
+// precision dropdown conveys how much is actually known. Empty = unknown.
+function isRealDate(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!m) return false;
+  const y = +m[1],
+    mo = +m[2],
+    d = +m[3];
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d;
+}
+
+const APPROX_DATE_HELP =
+  "Always enter a full calendar date as YYYY-MM-DD.\n\n" +
+  "Use “precision” to say how much is actually known:\n" +
+  "• day — full date known → 2023-05-14\n" +
+  "• month — only month & year → enter the 1st: 2023-05-01\n" +
+  "• year — only the year → enter Jan 1: 2023-01-01\n" +
+  "• unknown — date not known → leave the date blank\n\n" +
+  "“anchor” (optional) records how an imprecise date was placed within its " +
+  "period: beginning / end / midpoint of the month or year, or exact.";
+
+const ANCHOR_OPTS = [
+  ["", "—"],
+  ["EXACT", "exact"],
+  ["MID", "midpoint"],
+  ["BOM", "beginning of month"],
+  ["EOM", "end of month"],
+  ["BOY", "beginning of year"],
+  ["EOY", "end of year"],
+];
 
 async function init() {
   wirePicker();
@@ -297,6 +326,7 @@ function renderField(ev, f) {
     di.placeholder = "YYYY-MM-DD";
     di.inputMode = "numeric";
     di.value = val && val.date ? val.date : "";
+    // precision
     const ps = document.createElement("select");
     [
       ["0", "unknown"],
@@ -310,26 +340,47 @@ function renderField(ev, f) {
       ps.appendChild(op);
     });
     ps.value = val && val.precision != null ? String(val.precision) : "0";
+    const pl = document.createElement("label");
+    pl.className = "sublbl";
+    pl.append("precision", ps);
+    // anchor
+    const as = document.createElement("select");
+    ANCHOR_OPTS.forEach(([v, t]) => {
+      const op = document.createElement("option");
+      op.value = v;
+      op.textContent = t;
+      as.appendChild(op);
+    });
+    as.value = val && val.anchor ? val.anchor : "";
+    const al = document.createElement("label");
+    al.className = "sublbl";
+    al.append("anchor", as);
+    // help
+    const help = document.createElement("span");
+    help.className = "help";
+    help.textContent = "?";
+    help.title = APPROX_DATE_HELP;
     const err = document.createElement("div");
     err.className = "fld-err";
     const validate = () => {
       const s = di.value.trim();
-      const ok = s === "" || APPROX_DATE_RE.test(s);
+      const ok = s === "" || isRealDate(s);
       di.classList.toggle("bad", !ok);
-      err.textContent = ok ? "" : "Use YYYY-MM-DD (or YYYY / YYYY-MM for partial dates)";
+      err.textContent = ok
+        ? ""
+        : "Enter a real calendar date as YYYY-MM-DD — use precision for approximate dates";
       return ok;
     };
     di.oninput = () => {
       validate();
       mark(wrap, true);
     };
-    ps.onchange = () => mark(wrap, true);
-    box.appendChild(di);
-    box.appendChild(ps);
+    ps.onchange = as.onchange = () => mark(wrap, true);
+    box.append(di, pl, al, help);
     wrap.appendChild(box);
     wrap.appendChild(err);
     wrap._kind = "approx_date";
-    wrap._inputs = [di, ps];
+    wrap._inputs = [di, ps, as];
     wrap._validate = validate;
     validate(); // flag any pre-existing malformed value on render
     return wrap;
@@ -388,15 +439,15 @@ function collectEdits(card, ev) {
     if (kind === "approx_date") {
       const date = ins[0].value.trim() || null,
         prec = Number(ins[1].value);
+      const anchor = ins[2] && ins[2].value ? ins[2].value : null;
       const origIsObj = orig && typeof orig === "object";
-      // Rebuild the ApproxDate to match the original's shape so an untouched
-      // date doesn't look "changed": keep it an object when the original was
-      // one, and carry the anchor through (the editor never touches anchor).
-      if (date === null && prec === 0 && !origIsObj) {
+      if (date === null && prec === 0 && anchor === null && !origIsObj) {
         v = null;
       } else {
         v = { date: date, precision: prec };
-        if (origIsObj && "anchor" in orig) v.anchor = orig.anchor;
+        // Include anchor to match the stored shape; omit only when there's no
+        // anchor selected AND the original had no anchor key (avoids false edits).
+        if (anchor !== null || (origIsObj && "anchor" in orig)) v.anchor = anchor;
       }
     } else if (kind === "bool") {
       v = ins[0].checked;
@@ -417,7 +468,9 @@ async function saveVerdict(card, ev, verdict, comment) {
     if (wrap._kind === "approx_date" && wrap._validate && !wrap._validate()) bad = true;
   });
   if (bad) {
-    alert("Please fix the highlighted date(s) first — use YYYY-MM-DD (or YYYY / YYYY-MM).");
+    alert(
+      "Please fix the highlighted date(s) first — use YYYY-MM-DD (set precision for approximate dates)."
+    );
     return;
   }
   const edits = collectEdits(card, ev);

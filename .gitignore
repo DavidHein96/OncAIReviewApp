@@ -6,6 +6,9 @@ venv/
 .pytest_cache/
 .ruff_cache/
 
+# Node / JS dev tooling
+node_modules/
+
 # PyInstaller
 build/
 dist/

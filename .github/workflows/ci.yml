@@ -34,12 +34,18 @@ jobs:
       - name: Run tests
         run: uv run --group dev pytest -q
 
-  js-test:
+  js:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - name: Install JS dev deps
+        run: npm ci
+      - name: Lint (eslint)
+        run: npx eslint .
+      - name: Format check (prettier)
+        run: npx prettier --check .
       - name: Run front-end tests
         run: node --test "web/*.test.js"

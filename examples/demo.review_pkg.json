@@ -80,8 +80,11 @@
           "fields": {
             "histology": "clear cell RCC",
             "grade": "2",
-            "diagnosis_date": {"date": "2026-02-14", "precision": 3},
-            "evidence": ["Renal cell carcinoma, clear cell type.", "WHO/ISUP nucleolar grade 2 of 4."]
+            "diagnosis_date": { "date": "2026-02-14", "precision": 3 },
+            "evidence": [
+              "Renal cell carcinoma, clear cell type.",
+              "WHO/ISUP nucleolar grade 2 of 4."
+            ]
           }
         },
         {
@@ -124,7 +127,7 @@
           "fields": {
             "histology": "papillary RCC",
             "grade": "2",
-            "diagnosis_date": {"date": "2026-03", "precision": 2},
+            "diagnosis_date": { "date": "2026-03-01", "precision": 2 },
             "evidence": ["Papillary renal cell carcinoma, type 1."]
           }
         },
