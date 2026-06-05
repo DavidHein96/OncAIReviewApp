@@ -59,6 +59,11 @@ header .spacer {
   flex: 1;
 }
 
+header .ver {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+
 .bar {
   width: 220px;
   height: 8px;

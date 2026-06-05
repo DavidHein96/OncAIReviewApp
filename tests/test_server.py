@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import threading
+import tomllib
 from http.client import HTTPConnection
 from pathlib import Path
 
@@ -94,6 +95,13 @@ def test_validate_review_rejects_unknown_anchor():
 )
 def test_default_reviews_path(name, expected):
     assert server.default_reviews_path(Path("d") / name).name == expected
+
+
+def test_version_matches_pyproject():
+    """server.__version__ must stay in lockstep with pyproject.toml (the source)."""
+    root = Path(server.__file__).resolve().parent
+    meta = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+    assert server.__version__ == meta["project"]["version"]
 
 
 # --------------------------------------------------------------------------- #
@@ -190,7 +198,16 @@ def test_unknown_static_path_404s(port):
 def test_api_data_reports_empty_before_load(port):
     status, raw = _request(port, "GET", "/api/data")
     assert status == 200
-    assert json.loads(raw)["loaded"] is False
+    body = json.loads(raw)
+    assert body["loaded"] is False
+    # The viewer reads this to show the running version even before a package loads.
+    assert body["version"] == server.__version__
+
+
+def test_api_data_includes_version_after_load(port):
+    _request(port, "POST", "/api/load", json.loads(DEMO_PKG.read_text()))
+    _, raw = _request(port, "GET", "/api/data")
+    assert json.loads(raw)["version"] == server.__version__
 
 
 def test_load_then_review_roundtrip(port):

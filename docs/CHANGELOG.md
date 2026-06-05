@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-06-05
+
+### Added
+
+- The viewer now shows the running version as a `vX.Y.Z` badge in the header
+  (also printed in the server's startup banner). `pyproject.toml` is the single
+  source of truth — `server.py` reads it at runtime via the standard-library
+  `tomllib`, working both from source and inside the frozen executable.
+- Build assets are now named with the semantic version, e.g.
+  `oncai-review-0.3.0-windows-x64.exe`, so downloaded binaries are traceable to
+  a release. `pyproject.toml` is bundled into the executable so the frozen
+  binary can report its own version.
+
 ## [0.2.0] - 2026-06-05
 
 ### Added

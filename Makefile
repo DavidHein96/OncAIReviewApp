@@ -34,7 +34,9 @@ demo: ## Run the server with the bundled synthetic demo package
 	python server.py --package examples/demo.review_pkg.json $(PORT_ARG)
 
 build: ## Build a single-file executable into dist/ (PyInstaller)
-	uvx pyinstaller --onefile --name oncai-review --add-data "web$(DATA_SEP)web" server.py
+	uvx pyinstaller --onefile --name oncai-review \
+		--add-data "web$(DATA_SEP)web" \
+		--add-data "pyproject.toml$(DATA_SEP)." server.py
 	@echo "Built $(BINARY)"
 
 lint: ## Lint & type-check everything (ruff, ty, eslint, prettier --check)

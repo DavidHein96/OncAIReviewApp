@@ -29,6 +29,7 @@ import mimetypes
 import re
 import sys
 import threading
+import tomllib
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -43,6 +44,27 @@ def _web_dir() -> Path:
     """
     base = getattr(sys, "_MEIPASS", None)
     return (Path(base) / "web") if base else (Path(__file__).resolve().parent / "web")
+
+
+def _read_version() -> str:
+    """App's semantic version — ``pyproject.toml`` is the single source of truth.
+
+    Running from source, ``pyproject.toml`` sits next to this module at the repo
+    root. When frozen by PyInstaller it's bundled alongside ``web/`` (see the
+    ``--add-data`` in the Makefile and build workflow), so the exe can still
+    report its version. Falls back to ``"0+unknown"`` if it can't be read, so the
+    app always starts.
+    """
+    base = getattr(sys, "_MEIPASS", None)
+    root = Path(base) if base else Path(__file__).resolve().parent
+    try:
+        meta = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+        return str(meta["project"]["version"])
+    except (OSError, KeyError, tomllib.TOMLDecodeError):
+        return "0+unknown"
+
+
+__version__ = _read_version()
 
 
 # Where verdicts land when a package is opened from inside the app. The browser
@@ -176,9 +198,11 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/data":
             if STATE is None:
                 # No package opened yet — the UI shows the file picker.
-                self._send_json({"loaded": False, "reviewer": DEFAULT_REVIEWER})
+                self._send_json({"loaded": False, "reviewer": DEFAULT_REVIEWER, "version": __version__})
             else:
-                self._send_json(STATE.data_payload())
+                payload = STATE.data_payload()
+                payload["version"] = __version__
+                self._send_json(payload)
         else:
             self._serve_static(self.path)
 
@@ -306,7 +330,7 @@ def serve(  # noqa: PLR0913 — these are all explicit CLI-facing options, kept 
     url = f"http://{host}:{actual_port}/"
     if port and actual_port != port:
         print(f"Port {port} was busy — using {actual_port} instead.")
-    print(f"Review server: {url}")
+    print(f"Review server v{__version__}: {url}")
     if STATE is not None:
         n_events = sum(len(p.get("events", [])) for p in STATE.package.get("patients", []))
         print(f"  package : {package_path}")

@@ -41,8 +41,15 @@ async function init() {
     data = {};
   }
   if (data.reviewer) document.getElementById("reviewer").value = data.reviewer;
+  setVersion(data.version);
   if (data.loaded) hydrate(data);
   else showPicker();
+}
+
+// Stamp the running server's version into the header badge (e.g. "v0.2.0").
+function setVersion(v) {
+  const el = document.getElementById("ver");
+  if (el) el.textContent = v ? "v" + v : "";
 }
 
 function showPicker() {
