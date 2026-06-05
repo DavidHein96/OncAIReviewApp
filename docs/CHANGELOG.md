@@ -17,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `oncai-review-0.3.0-windows-x64.exe`, so downloaded binaries are traceable to
   a release. `pyproject.toml` is bundled into the executable so the frozen
   binary can report its own version.
+- macOS now ships a double-clickable `.app` bundle (built with `--windowed`,
+  zipped with `ditto`) instead of a bare binary, so non-technical reviewers can
+  launch it from Finder. Includes `docs/RUNNING-ON-MAC.md` (the one-time
+  Gatekeeper "Open Anyway" steps, since the app is unsigned) and a
+  `make build-app` target to build it locally.
 
 ## [0.2.0] - 2026-06-05
 

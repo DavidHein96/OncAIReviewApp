@@ -5,7 +5,11 @@ name: Build standalone executables
 # which case the per-platform binaries are attached to that release.
 #
 # Artifacts and release assets are named with the semantic version read from
-# pyproject.toml (the single source of truth), e.g. oncai-review-0.2.0-linux-x64.
+# pyproject.toml (the single source of truth), e.g. oncai-review-0.3.0-linux-x64.
+#
+# macOS ships a double-clickable .app bundle (built with --windowed) zipped with
+# ditto so the bundle structure and permissions survive download. See
+# docs/RUNNING-ON-MAC.md for the (unsigned) first-launch steps reviewers follow.
 on:
   workflow_dispatch:
   release:
@@ -24,20 +28,23 @@ jobs:
             label: windows-x64
             data: "web;web" # PyInstaller uses ';' as the path separator on Windows
             meta: "pyproject.toml;." # bundle pyproject so the exe can report its version
-            binary: oncai-review.exe
-            ext: ".exe"
+            windowed: "" # console app
+            binary: oncai-review.exe # what PyInstaller writes into dist/
+            ext: ".exe" # release-asset extension (raw binary)
           - os: ubuntu-latest
             label: linux-x64
             data: "web:web" # ...and ':' everywhere else
             meta: "pyproject.toml:."
+            windowed: ""
             binary: oncai-review
             ext: ""
           - os: macos-latest
             label: macos-arm64 # macos-latest runners are Apple Silicon (arm64)
             data: "web:web"
             meta: "pyproject.toml:."
-            binary: oncai-review
-            ext: ""
+            windowed: "--windowed" # produce a double-clickable .app bundle
+            binary: oncai-review.app
+            ext: ".zip" # the .app is zipped (ditto) for distribution
     runs-on: ${{ matrix.os }}
     steps:
       - name: Check out repo
@@ -59,22 +66,32 @@ jobs:
         run: python -m pip install pyinstaller
 
       - name: Build EXE
-        run: pyinstaller --onefile --name oncai-review --add-data "${{ matrix.data }}" --add-data "${{ matrix.meta }}" server.py
+        run: pyinstaller --onefile ${{ matrix.windowed }} --name oncai-review --add-data "${{ matrix.data }}" --add-data "${{ matrix.meta }}" server.py
+
+      - name: Package asset
+        id: pkg
+        shell: bash
+        # Name every asset with the semantic version + platform. macOS bundles
+        # are zipped with ditto (preserves the .app structure + perms); the other
+        # platforms ship the raw binary as-is.
+        run: |
+          asset="oncai-review-${{ steps.ver.outputs.version }}-${{ matrix.label }}${{ matrix.ext }}"
+          if [ "${{ matrix.ext }}" = ".zip" ]; then
+            ditto -c -k --keepParent "dist/${{ matrix.binary }}" "$asset"
+          else
+            cp "dist/${{ matrix.binary }}" "$asset"
+          fi
+          echo "asset=$asset" >> "$GITHUB_OUTPUT"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: oncai-review-${{ steps.ver.outputs.version }}-${{ matrix.label }}
-          path: dist/${{ matrix.binary }}
+          path: ${{ steps.pkg.outputs.asset }}
 
       - name: Attach binary to the release
         if: github.event_name == 'release'
-        # bash is available on all runners (incl. Windows), so the asset naming
-        # is identical across platforms.
         shell: bash
-        run: |
-          asset="oncai-review-${{ steps.ver.outputs.version }}-${{ matrix.label }}${{ matrix.ext }}"
-          cp "dist/${{ matrix.binary }}" "$asset"
-          gh release upload "${{ github.event.release.tag_name }}" "$asset" --clobber
+        run: gh release upload "${{ github.event.release.tag_name }}" "${{ steps.pkg.outputs.asset }}" --clobber
         env:
           GH_TOKEN: ${{ github.token }}

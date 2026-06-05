@@ -78,16 +78,25 @@ into a single file a collaborator can run with no Python install:
 uv run pyinstaller --onefile --name oncai-review --add-data "web:web" server.py
 ```
 
-The `--add-data` flag bundles the web assets; at runtime they are unpacked from
+The `--add-data` flag bundles the web assets (and `pyproject.toml`, so the frozen
+binary can report its own version); at runtime they are unpacked from
 `sys._MEIPASS`, so the one-file binary stays self-contained.
 
 The `.github/workflows/build.yml` workflow builds **Windows (x64), Linux (x64),
-and macOS (arm64)** binaries in one matrix run. It runs two ways:
+and macOS (arm64)** binaries in one matrix run, naming each asset with the
+semantic version (e.g. `oncai-review-0.3.0-windows-x64.exe`). It runs two ways:
 
 - **On demand** — from the **Actions** tab ("Build standalone executables" →
   **Run workflow**); the binaries are uploaded as workflow artifacts.
 - **On a new GitHub Release** — the per-platform binaries are built and attached
   directly to that release as downloadable assets.
+
+macOS ships a double-clickable `.app` bundle (built with `--windowed`, zipped
+with `ditto`) rather than a bare binary. Because it's **unsigned**, reviewers do
+a one-time Gatekeeper approval on first launch — hand them
+[`docs/RUNNING-ON-MAC.md`](docs/RUNNING-ON-MAC.md). Build one locally with
+`make build-app`. (A bare downloaded binary can't be double-clicked and would
+need Terminal, which is why the Mac target is a `.app`.)
 
 ## Development
 

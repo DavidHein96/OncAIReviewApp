@@ -16,8 +16,12 @@ endif
 PORT ?=
 PORT_ARG := $(if $(PORT),--port $(PORT))
 
+# Version (single source of truth: pyproject.toml) + arch, for naming bundles.
+VERSION := $(shell python -c "import tomllib,pathlib;print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])" 2>/dev/null)
+ARCH := $(shell uname -m)
+
 .DEFAULT_GOAL := help
-.PHONY: help install start demo build test test-js lint format check clean
+.PHONY: help install start demo build build-app test test-js lint format check clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -38,6 +42,13 @@ build: ## Build a single-file executable into dist/ (PyInstaller)
 		--add-data "web$(DATA_SEP)web" \
 		--add-data "pyproject.toml$(DATA_SEP)." server.py
 	@echo "Built $(BINARY)"
+
+build-app: ## Build a double-clickable macOS .app, zipped for sending (mac only)
+	uvx pyinstaller --onefile --windowed --name oncai-review \
+		--add-data "web$(DATA_SEP)web" \
+		--add-data "pyproject.toml$(DATA_SEP)." server.py
+	ditto -c -k --keepParent dist/oncai-review.app dist/oncai-review-$(VERSION)-macos-$(ARCH).zip
+	@echo "Built dist/oncai-review-$(VERSION)-macos-$(ARCH).zip  (see docs/RUNNING-ON-MAC.md)"
 
 lint: ## Lint & type-check everything (ruff, ty, eslint, prettier --check)
 	uvx ruff check .
