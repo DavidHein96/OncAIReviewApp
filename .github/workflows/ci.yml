@@ -16,7 +16,8 @@ jobs:
       - name: Ruff
         run: uvx ruff@latest check .
       - name: Type check (ty)
-        run: uvx ty@latest check .
+        # Run inside the project env so ty can resolve dev deps (e.g. pytest).
+        run: uv run --group dev ty check .
 
   test:
     strategy:
