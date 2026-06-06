@@ -34,6 +34,7 @@ const ANCHOR_OPTS = [
 
 async function init() {
   wirePicker();
+  wireQuit();
   let data = {};
   try {
     data = await (await fetch("/api/data")).json();
@@ -50,6 +51,26 @@ async function init() {
 function setVersion(v) {
   const el = document.getElementById("ver");
   if (el) el.textContent = v ? "v" + v : "";
+}
+
+// The Quit button stops the local server so the app fully closes — the only
+// quit path that works the same for the macOS .app and the Windows console
+// build. Verdicts are saved as you go, so only un-applied field edits are lost.
+function wireQuit() {
+  const b = document.getElementById("quit");
+  if (!b) return;
+  b.onclick = async () => {
+    if (!confirm("Stop the review app? Saved reviews are kept.")) return;
+    b.disabled = true;
+    try {
+      await fetch("/api/quit", { method: "POST" });
+    } catch (e) {
+      /* the server drops the connection as it shuts down — expected */
+    }
+    document.body.innerHTML =
+      '<div class="stopped"><h1>Review app stopped</h1>' +
+      "<p>You can close this browser tab now.</p></div>";
+  };
 }
 
 function showPicker() {

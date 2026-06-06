@@ -12,7 +12,7 @@ you to approve it **once**. After that it opens normally with a double-click.
 
 1. **Download** `oncai-review-<version>-macos-arm64.zip`.
 2. **Double-click the `.zip`** in your Downloads to unzip it. You'll get
-   **`oncai-review`** (a small app with a rocket-style icon).
+   **`oncai-review`** (an app with a blue clipboard-and-checkmark icon).
 3. **Double-click `oncai-review`.** macOS will pop up a message like
    _"Apple could not verify 'oncai-review' is free of malware."_ Click
    **Done** (do **not** click "Move to Trash").
@@ -22,25 +22,36 @@ you to approve it **once**. After that it opens normally with a double-click.
    Click **Open Anyway**.
 6. Confirm with **Touch ID** or your Mac password, then click **Open** in the
    final dialog.
-7. Your web browser opens with the review app. If macOS asks whether the app can
-   access your **Documents** folder, click **Allow** — that's where your reviews
-   are saved (`Documents/oncai_reviews/`).
+7. **Two things open:** a small **Terminal** window (this is the app's engine —
+   just leave it open) and your **web browser** with the review app. If macOS
+   asks whether the app can access your **Documents** folder, click **Allow** —
+   that's where your reviews are saved (`Documents/oncai_reviews/`).
 
 That's it. **You only do steps 3–6 once.**
 
+> **About the Terminal window:** it's normal. It shows the app's address
+> (`http://localhost:...`) and stays open while the app runs. You don't need to
+> type anything in it.
+
 ## Every time after that
 
-- Double-click **`oncai-review`** — your browser opens with the app.
+- Double-click **`oncai-review`** — a Terminal window and your browser open with
+  the app.
 - In the app, click **Open a review package** and choose the
   `.review_pkg.json` file you were sent.
-- **To quit:** right-click (or Control-click) the app's icon in the **Dock** and
-  choose **Quit**. (Closing the browser tab alone doesn't stop it.)
+- **To quit, any of these work:**
+  - Click the **Quit** button at the top-right of the app, **or**
+  - Press **Ctrl-C** in the Terminal window, **or**
+  - Close the Terminal window (confirm **Terminate**).
+- **Closed the browser tab by accident?** Just **double-click `oncai-review`
+  again** — it reconnects to the app that's still running and reopens your tab,
+  right where you left off (your package stays loaded).
 
 ## Troubleshooting
 
 - **"Open Anyway" isn't showing** in Privacy & Security — try double-clicking the
   app once first; the button only appears right after macOS blocks it.
-- **Browser didn't open** — the app prints a `http://127.0.0.1:...` address; you
-  can paste that into Safari/Chrome manually.
+- **Browser didn't open** — the Terminal window shows a `http://localhost:...`
+  address; paste that into Safari/Chrome manually.
 - **Still stuck?** Send a screenshot of what you see to the person who shared the
   app with you.

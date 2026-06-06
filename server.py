@@ -30,9 +30,14 @@ import re
 import sys
 import threading
 import tomllib
+import urllib.request
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+
+# Serve the SVG favicon as image/svg+xml everywhere. On Windows mimetypes reads
+# the registry, which doesn't reliably map .svg, so register it explicitly.
+mimetypes.add_type("image/svg+xml", ".svg")
 
 
 def _web_dir() -> Path:
@@ -72,6 +77,11 @@ __version__ = _read_version()
 # predictable home-dir location keyed by the package's batch name.
 SAVE_DIR = Path.home() / "Documents" / "oncai_reviews"
 DEFAULT_REVIEWER = ""
+
+# Identifies our server on /api/ping so a second launch can recognise an
+# already-running instance (single-instance reconnect) rather than starting a
+# duplicate. See _find_running_instance().
+APP_ID = "oncai-review"
 
 
 def _safe_name(name: str) -> str:
@@ -195,7 +205,10 @@ class Handler(BaseHTTPRequestHandler):
         self._send(code, json.dumps(obj, default=str).encode("utf-8"), "application/json")
 
     def do_GET(self) -> None:
-        if self.path == "/api/data":
+        if self.path == "/api/ping":
+            # Lightweight identity probe used for single-instance reconnect.
+            self._send_json({"app": APP_ID, "version": __version__})
+        elif self.path == "/api/data":
             if STATE is None:
                 # No package opened yet — the UI shows the file picker.
                 self._send_json({"loaded": False, "reviewer": DEFAULT_REVIEWER, "version": __version__})
@@ -230,6 +243,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_load(raw)
         elif self.path == "/api/review":
             self._handle_review(raw)
+        elif self.path == "/api/quit":
+            self._handle_quit()
         else:
             self._send(404, b"not found", "text/plain")
 
@@ -273,6 +288,18 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._send_json(result)
 
+    def _handle_quit(self) -> None:
+        """Stop the server so the app fully closes.
+
+        Lets a reviewer quit from the browser (the macOS .app and Windows build
+        both run the server in a Terminal/console window; Ctrl-C there also
+        works, but a button is friendlier). We answer first, then call
+        ``shutdown()`` from another thread (it must not run on the serving
+        thread) so ``serve_forever`` returns and the process exits cleanly.
+        """
+        self._send_json({"ok": True})
+        threading.Thread(target=self.server.shutdown, daemon=True).start()
+
 
 def _open_server(host: str, port: int) -> ThreadingHTTPServer:
     """Bind an HTTP server, picking an open port intelligently.
@@ -291,6 +318,34 @@ def _open_server(host: str, port: int) -> ThreadingHTTPServer:
             last_err = exc
             continue
     raise OSError(f"Could not bind a port on {host}: {last_err}")
+
+
+def _instance_url_if_ours(host: str, port: int) -> str | None:
+    """Return ``http://host:port/`` if our app answers /api/ping there, else None."""
+    url = f"http://{host}:{port}/"
+    try:
+        with urllib.request.urlopen(url + "api/ping", timeout=0.3) as resp:  # noqa: S310 — fixed localhost URL
+            info = json.loads(resp.read())
+    except (OSError, ValueError):  # refused / timeout / non-JSON — not our server
+        return None
+    return url if isinstance(info, dict) and info.get("app") == APP_ID else None
+
+
+def _find_running_instance(host: str, port: int) -> str | None:
+    """URL of an already-running oncai-review on ``host``, or None.
+
+    Probes the preferred port and the same fallback range :func:`_open_server`
+    would use, so a second launch (e.g. the reviewer re-opening the app after
+    closing the browser tab) reconnects to the existing server instead of
+    starting a duplicate. ``port == 0`` (always-ephemeral) opts out.
+    """
+    if not port:
+        return None
+    for candidate in [port, *range(port + 1, port + 21)]:
+        url = _instance_url_if_ours(host, candidate)
+        if url is not None:
+            return url
+    return None
 
 
 def default_reviews_path(package_path: Path) -> Path:
@@ -318,6 +373,21 @@ def serve(  # noqa: PLR0913 — these are all explicit CLI-facing options, kept 
     """
     global STATE, DEFAULT_REVIEWER  # noqa: PLW0603 — module-level singleton is intentional here
     DEFAULT_REVIEWER = reviewer
+
+    # GUI flow (double-click, no package): if the app is already running, just
+    # reopen its tab instead of starting a duplicate. This is the recovery path
+    # when a reviewer closes the browser tab — re-launching brings them back to
+    # their loaded package. (Skipped for the --package CLI path, which wants to
+    # load that specific package into a fresh server.)
+    if package_path is None:
+        running = _find_running_instance(host, port)
+        if running is not None:
+            print(f"oncai-review is already running at {running} — reopening it.")
+            print("  (Close the tab and click Quit in the app to stop it.)")
+            if open_browser:
+                webbrowser.open(running)
+            return
+
     if package_path is not None:
         package_path = Path(package_path)
         if not package_path.exists():
@@ -339,7 +409,7 @@ def serve(  # noqa: PLR0913 — these are all explicit CLI-facing options, kept 
     else:
         print("  no package opened — pick a .review_pkg.json in the browser")
         print(f"  reviews will be saved under: {SAVE_DIR}")
-    print("  Ctrl-C to stop.")
+    print("  Quit from the button in the app, or Ctrl-C here.")
     if open_browser:
         threading.Thread(target=lambda: webbrowser.open(url), daemon=True).start()
     try:

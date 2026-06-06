@@ -28,23 +28,23 @@ jobs:
             label: windows-x64
             data: "web;web" # PyInstaller uses ';' as the path separator on Windows
             meta: "pyproject.toml;." # bundle pyproject so the exe can report its version
-            windowed: "" # console app
+            iconflag: "--icon assets/icon.ico" # taskbar / Explorer icon
             binary: oncai-review.exe # what PyInstaller writes into dist/
             ext: ".exe" # release-asset extension (raw binary)
           - os: ubuntu-latest
             label: linux-x64
             data: "web:web" # ...and ':' everywhere else
             meta: "pyproject.toml:."
-            windowed: ""
+            iconflag: "" # ELF binaries carry no icon
             binary: oncai-review
             ext: ""
           - os: macos-latest
             label: macos-arm64 # macos-latest runners are Apple Silicon (arm64)
             data: "web:web"
             meta: "pyproject.toml:."
-            windowed: "--windowed" # produce a double-clickable .app bundle
-            binary: oncai-review.app
-            ext: ".zip" # the .app is zipped (ditto) for distribution
+            iconflag: "--icon assets/icon.icns"
+            binary: oncai-review # console binary; wrapped into a .app in "Package asset"
+            ext: ".zip" # double-clickable .app, zipped for distribution
     runs-on: ${{ matrix.os }}
     steps:
       - name: Check out repo
@@ -66,18 +66,20 @@ jobs:
         run: python -m pip install pyinstaller
 
       - name: Build EXE
-        run: pyinstaller --onefile ${{ matrix.windowed }} --name oncai-review --add-data "${{ matrix.data }}" --add-data "${{ matrix.meta }}" server.py
+        run: pyinstaller --onefile ${{ matrix.iconflag }} --name oncai-review --add-data "${{ matrix.data }}" --add-data "${{ matrix.meta }}" server.py
 
       - name: Package asset
         id: pkg
         shell: bash
-        # Name every asset with the semantic version + platform. macOS bundles
-        # are zipped with ditto (preserves the .app structure + perms); the other
-        # platforms ship the raw binary as-is.
+        # Name every asset with the semantic version + platform. macOS wraps the
+        # console binary in a double-clickable .app (opens in Terminal) and zips
+        # it with ditto (preserves structure + perms); the other platforms ship
+        # the raw binary as-is.
         run: |
           asset="oncai-review-${{ steps.ver.outputs.version }}-${{ matrix.label }}${{ matrix.ext }}"
           if [ "${{ matrix.ext }}" = ".zip" ]; then
-            ditto -c -k --keepParent "dist/${{ matrix.binary }}" "$asset"
+            bash scripts/build-macos-app.sh "dist/${{ matrix.binary }}" assets/icon.icns "${{ steps.ver.outputs.version }}" dist
+            ditto -c -k --keepParent dist/oncai-review.app "$asset"
           else
             cp "dist/${{ matrix.binary }}" "$asset"
           fi

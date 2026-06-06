@@ -228,6 +228,38 @@ def test_load_then_review_roundtrip(port):
     assert "DEMO-0001:N-1001:dx1" in json.loads(raw)["reviews"]
 
 
+def test_api_ping_identifies_app(port):
+    status, raw = _request(port, "GET", "/api/ping")
+    assert status == 200
+    body = json.loads(raw)
+    assert body["app"] == "oncai-review"
+    assert body["version"] == server.__version__
+
+
+def test_instance_detection_hits_and_misses(port):
+    # A running oncai-review is recognised by its /api/ping signature...
+    assert server._instance_url_if_ours("127.0.0.1", port) == f"http://127.0.0.1:{port}/"
+    assert server._find_running_instance("127.0.0.1", port) == f"http://127.0.0.1:{port}/"
+    # ...and a port with nothing listening is not.
+    assert server._instance_url_if_ours("127.0.0.1", 9) is None
+
+
+def test_quit_shuts_down_server():
+    """POST /api/quit answers ok, then stops serve_forever so the process exits."""
+    httpd = server._open_server("127.0.0.1", 0)
+    bound_port = httpd.server_address[1]
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    try:
+        status, raw = _request(bound_port, "POST", "/api/quit")
+        assert status == 200
+        assert json.loads(raw)["ok"] is True
+        thread.join(timeout=5)
+        assert not thread.is_alive()  # serve_forever returned -> server stopped
+    finally:
+        httpd.server_close()
+
+
 def test_load_rejects_non_package(port):
     status, raw = _request(port, "POST", "/api/load", {"hello": "world"})
     assert status == 400

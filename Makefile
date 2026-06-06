@@ -6,9 +6,11 @@
 ifeq ($(OS),Windows_NT)
   DATA_SEP := ;
   BINARY := dist/oncai-review.exe
+  ICON_FLAG := --icon assets/icon.ico
 else
   DATA_SEP := :
   BINARY := dist/oncai-review
+  ICON_FLAG :=
 endif
 
 # By default no port is forced, so the server uses its default and auto-falls
@@ -38,15 +40,19 @@ demo: ## Run the server with the bundled synthetic demo package
 	python server.py --package examples/demo.review_pkg.json $(PORT_ARG)
 
 build: ## Build a single-file executable into dist/ (PyInstaller)
-	uvx pyinstaller --onefile --name oncai-review \
+	uvx pyinstaller --onefile $(ICON_FLAG) --name oncai-review \
 		--add-data "web$(DATA_SEP)web" \
 		--add-data "pyproject.toml$(DATA_SEP)." server.py
 	@echo "Built $(BINARY)"
 
-build-app: ## Build a double-clickable macOS .app, zipped for sending (mac only)
-	uvx pyinstaller --onefile --windowed --name oncai-review \
+build-app: ## Build a double-clickable macOS .app (opens in Terminal), zipped (mac only)
+	# Ship a console binary wrapped in a tiny .app that opens it in Terminal.
+	# See scripts/build-macos-app.sh for why (a windowed app loses its Dock icon
+	# and hangs when you double-click it again while it's running).
+	uvx pyinstaller --onefile --icon assets/icon.icns --name oncai-review \
 		--add-data "web$(DATA_SEP)web" \
 		--add-data "pyproject.toml$(DATA_SEP)." server.py
+	bash scripts/build-macos-app.sh dist/oncai-review assets/icon.icns $(VERSION) dist
 	ditto -c -k --keepParent dist/oncai-review.app dist/oncai-review-$(VERSION)-macos-$(ARCH).zip
 	@echo "Built dist/oncai-review-$(VERSION)-macos-$(ARCH).zip  (see docs/RUNNING-ON-MAC.md)"
 

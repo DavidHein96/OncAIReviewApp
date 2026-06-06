@@ -64,6 +64,39 @@ header .ver {
   opacity: 0.7;
 }
 
+.quitbtn {
+  font-size: 12px;
+  padding: 4px 12px;
+  border: 1px solid var(--bd);
+  border-radius: 6px;
+  background: var(--pan);
+  color: var(--mut);
+  cursor: pointer;
+}
+
+.quitbtn:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.quitbtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.stopped {
+  max-width: 480px;
+  margin: 18vh auto 0;
+  text-align: center;
+  color: var(--mut);
+}
+
+.stopped h1 {
+  font-size: 20px;
+  color: #111827;
+  margin-bottom: 8px;
+}
+
 .bar {
   width: 220px;
   height: 8px;
