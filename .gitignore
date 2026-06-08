@@ -20,3 +20,6 @@ dist/
 .idea/
 
 archive
+
+# Local notes (not for the repo)
+NOTES.md
