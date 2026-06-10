@@ -4,6 +4,10 @@ version = "0.4.0"
 description = "Local, dependency-free physician review app for structured clinical-note extractions"
 readme = "README.md"
 license-files = ["LICENSE"]
+classifiers = [
+    "License :: Free For Educational Use",
+    "License :: Free for non-commercial use",
+]
 authors = [{ name = "David Hein", email = "davidhein67@gmail.com" }]
 maintainers = [{ name = "David Hein" }]
 requires-python = ">=3.11"
